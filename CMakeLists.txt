@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.11)
 project(hw2_3)
 enable_language(CUDA)
 set(CMAKE_CXX_STANDARD 11)
@@ -26,6 +26,7 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 endif ()
 
 add_executable(gpu main.cu gpu.cu common.h)
+target_compile_features(gpu PRIVATE cxx_std_11)
 
 # Copy the job scripts
 configure_file(job-gpu job-gpu COPYONLY)
