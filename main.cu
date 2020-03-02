@@ -146,5 +146,6 @@ int main(int argc, char** argv) {
     // Finalize
     std::cout << "Simulation Time = " << seconds << " seconds for " << num_parts << " particles.\n";
     fsave.close();
+    cudaFree(parts_gpu);
     delete[] parts;
 }
