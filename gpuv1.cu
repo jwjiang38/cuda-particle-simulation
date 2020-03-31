@@ -5,7 +5,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 using namespace std;
-const int MPPBIN=7;
+const int MPPBIN=6;
 typedef struct bin_t {
     particle_t* particles[MPPBIN];
     int parid[MPPBIN];
