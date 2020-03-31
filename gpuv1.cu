@@ -220,3 +220,4 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
         rebin_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,num_bins_per_side,nbin,bins,bin_size,track);
         clear_gpu<<<binblks,NUM_THREADS>>>(track,num_bins_per_side);
         compute_forces_gpu<<<blks,NUM_THREADS>>>(parts,num_parts,nbin,bins);
+}
