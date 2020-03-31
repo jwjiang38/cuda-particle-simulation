@@ -54,21 +54,7 @@ __global__ void rebin_gpu(particle_t* particles,int num_parts,int num_bins_per_s
     }
     __syncthreads();
 
-   /* if (tid==0){
-        for (int i=0;i<num_bins_per_side*num_bins_per_side;i++){
-            for (int j=0;j<track[i].add;j++){
-                particle_t* particle=track[i].particles[j];
-                int bin_row=particle->y/bin_size;
-                int bin_col=particle->x/bin_size;
-                int id=bin_row+bin_col*num_bins_per_side;
-                bins[id].particles[bins[id].nparts]=particle;
-                bins[id].parid[bins[id].nparts]=track[i].parids[j];
-                bins[id].nparts+=1;
-            }
-
-        }
-    }
-*/
+               
     for (int j=0;j<track[tid].add;j++){
         particle_t* particle = track[tid].particles[j];
         int bin_row=particle->y/bin_size;
@@ -152,10 +138,6 @@ __global__ void move_gpu(particle_t* particles, int num_parts, double size) {
     }
 }
 
-//device_vector<> *collision_bins;  // TODO: Rename to adjacent_bins.
-//device_vector<device_vector<particle_t*>*> *track;
-// Make bins .1% larger to account for rounding error in size computation.
-// TODO: How does this affect scaling?
 #define OVERFILL 1.001
 
 double ceil(double x) {
@@ -228,100 +210,13 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
     //cout << "Binning particles...\n";
     binparticles<<<blks,NUM_THREADS>>>(parts,num_parts,bins,num_bins_per_side,nbin,bin_size);
     setupnearbins<<<binblks,NUM_THREADS>>>(bins,num_bins_per_side);
-    // Next we will group adjacent bins together that have possibilities of collisions.
-    // There will be 9 bins in each group. We will expect there to be on average one
-    // collision in each group. This is how we will limit the complexity of the problem.
-    //cout << "creating track variable\n";
-/*    track=new device_vector<device_vector<particle_t*>*>;
-    for (int i =0 ; i< omp_get_num_procs();i++){
-        track->push_back(new device_vector<particle_t*>());
-    }*/
-    //cout << "Creating collision bins...\n";
-   // collision_bins = new device_vector<device_vector<device_vector<bin_t*>*>*>();  // TODO: Having nested pointers is stupid in this case (even the top-most pointer isn't needed).
- /*   for (int i = 0; i < num_bins_per_side; i++) {
 
-        for (int j = 0; j < num_bins_per_side; j++) {
-            int id = i+j*num_bins_per_side;
-            for (int k = i - 1; k < i + 2; k++) {
-                for (int l = j - 1; l < j + 2; l++) {
-                    if (k >= 0 && l >= 0 && k < num_bins_per_side && l < num_bins_per_side) {
-                            int nid = k+l*num_bins_per_side;  
-			    bins[id].nearbins[bins[id].nnbins]=nid;
-                            bins[id].nnbins+=1;
-  // NOTE: Indexing must be UD/LR otherwise correctness against ref implementation will fail.
-                    }
-                }
-            }
-        }
-    }*/
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
-/*    for (int i = 0; i < num_bins_per_side; i++) {
-        for (int j = 0; j < num_bins_per_side; j++) {
-            bin_t *bin = (*((*bins)[i]))[j];
-            device_vector<particle_t*> *particles = bin->particles;
-            device_vector<bin_t*> *adjacent_bins = (*((*collision_bins)[i]))[j];
-
-            for (int k = 0; k < particles->size(); k++) {
-                particle_t *particle = (*particles)[k];
-                particle->ax = particle->ay = 0;  // TODO: Handle case where there are no neighbors and setting this would be wrong.
-                                                  // NOTE: Reference implementation also makes this error so...
-
-                for (int l = 0; l < adjacent_bins->size(); l++) {
-                    device_vector<particle_t*> *colliding_particles = (*adjacent_bins)[l]->particles;
-
-                    for (int m = 0; m < colliding_particles->size(); m++) {
-                        particle_t *colliding_particle = (*colliding_particles)[m];
-
-                        apply_force(*particle, *colliding_particle);
-                    }
-                }
-            }
-        }
-    }
-*/
     // Move particles.
         move_gpu<<<blks,NUM_THREADS>>>(parts, num_parts,size);
         rebin_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,num_bins_per_side,nbin,bins,bin_size,track);
         clear_gpu<<<binblks,NUM_THREADS>>>(track,num_bins_per_side);
         compute_forces_gpu<<<blks,NUM_THREADS>>>(parts,num_parts,nbin,bins);
-    // Re-bin particles.
-  //  rebin<<<blks,NUM_THREAD>>>(bins,num_bins_per_side,collision_bins);
-   /* for (int i = 0; i < num_bins_per_side; i++) {
-        for (int j = 0; j < num_bins_per_side; j++) {
-            device_vector<particle_t*> *particles = (*((*bins)[i]))[j]->particles;  // TODO: Does saving this cause iteration issues?
-            for (int k = 0; k < particles->size(); k++) {
-                particle_t *p = (*particles)[k];
-
-                int bin_row = p->y / bin_size; // Floor.
-                int bin_col = p->x / bin_size; // Floor.
-
-                if (bin_row != i || bin_col != j) {
-                    // Remove from current bin.
-                    particles->erase(particles->begin()+k);
-                    k--;
-                    int ID=omp_get_thread_num();
-                    (*track)[ID]->push_back(p);
-                    // Move to correct bin.
-                   // (*((*bins)[bin_row]))[bin_col]->particles->push_back(p);
-                }
-            }
-        }
-    }
-      for (int i=0;i<Nthreads;i++){
-        device_vector<particle_t*> *particles =(*track)[i];
-        for (int m=0;m<particles->size();m++){
-          particle_t *p =(*particles)[m];
-          int bin_row=p->y/bin_size;
-          int bin_col=p->x/bin_size;
-          (*((*bins)[bin_row]))[bin_col]->particles->push_back(p);
-        }
-        (*track)[i]->clear();
-      }
-
-}*/
-}
-// Free memory.
-
