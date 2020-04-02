@@ -1,4 +1,5 @@
 #include "common.h"
+#include <chrono>
 #include <cmath>
 #include <iostream>
 //#include <vector>
@@ -104,7 +105,6 @@ __device__ void apply_force_gpu(particle_t& particle, particle_t& neighbor) {
     double r2 = dx * dx + dy * dy;
     if (r2 > cutoff * cutoff)
         return;
-    // r2 = fmax( r2, min_r*min_r );
     r2 = (r2 > min_r * min_r) ? r2 : min_r * min_r;
     double r = sqrt(r2);
 
@@ -128,14 +128,15 @@ __global__ void compute_forces_gpu(particle_t* parts, int num_parts,bin_t* bins,
         particle->ax = 0;
         particle->ay = 0;
         for (int j=0;j<bins[tid].nnbins;j++){
-            bin_t nearbins=bins[bins[tid].nearbins[j]];
-            for (int k=0;k<nearbins.nparts;k++){
-                particle_t* neaparticle = nearbins.particles[k];
+            bin_t* nearbins=&bins[bins[tid].nearbins[j]];
+            for (int k=0;k<nearbins->nparts;k++){
+                particle_t* neaparticle = nearbins->particles[k];
                 apply_force_gpu(*particle,*neaparticle);
             }
         }
     }
-}  
+}
+
 // Integrate the ODE
 __global__ void move_gpu(particle_t* particles, int num_parts, double size) {
     // Get thread (particle) ID
@@ -259,30 +260,59 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
 
-//static int loop = 0;
-        rebin_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,num_bins_per_side,bins,bin_size,track);
-//        cudaerr=cudaDeviceSynchronize();
-//    if (cudaerr != cudaSuccess)
-//      cout<<"rebingpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
-        rebinaddgpu<<<binblks,NUM_THREADS>>>(track,bins,num_bins_per_side,bin_size);
+//    static int loop = 0;
 
-//         cudaerr=cudaDeviceSynchronize();
+//    auto start_time = chrono::steady_clock::now();
+    rebin_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,num_bins_per_side,bins,bin_size,track);
+//    cudaError_t cudaerr = cudaDeviceSynchronize();
 //    if (cudaerr != cudaSuccess)
-//      cout<<"rebinaddgpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
-        clear_gpu<<<binblks,NUM_THREADS>>>(track,num_bins_per_side);
+//        cout<<"rebingpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
+//    auto end_time = chrono::steady_clock::now();
+//    chrono::duration<double> diff = end_time - start_time;
+//    double seconds = diff.count();
+//    cout << "Rebin kernel took " << seconds << " seconds." << endl;
 
-//        cudaerr=cudaDeviceSynchronize();
+//    start_time = chrono::steady_clock::now();
+    rebinaddgpu<<<binblks,NUM_THREADS>>>(track,bins,num_bins_per_side,bin_size);
+//    cudaerr = cudaDeviceSynchronize();
 //    if (cudaerr != cudaSuccess)
-//      cout<<"cleargpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
-        compute_forces_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,bins,num_bins_per_side);
-//      cudaerr=  cudaDeviceSynchronize();
+//        cout<<"rebinaddgpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
+//    end_time = chrono::steady_clock::now();
+//    diff = end_time - start_time;
+//    seconds = diff.count();
+//    cout << "Rebinadd kernel took " << seconds << " seconds." << endl;
+
+//    start_time = chrono::steady_clock::now();
+    clear_gpu<<<binblks,NUM_THREADS>>>(track,num_bins_per_side);
+//    cudaerr = cudaDeviceSynchronize();
 //    if (cudaerr != cudaSuccess)
-//      cout<<"forcegpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
-        move_gpu<<<blks,NUM_THREADS>>>(parts, num_parts,size);
-//        cudaError_t cudaerr=cudaDeviceSynchronize();
+//        cout<<"cleargpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
+//    end_time = chrono::steady_clock::now();
+//    diff = end_time - start_time;
+//    seconds = diff.count();
+//    cout << "Clear kernel took " << seconds << " seconds." << endl;
+
+//    start_time = chrono::steady_clock::now();
+    compute_forces_gpu<<<binblks,NUM_THREADS>>>(parts,num_parts,bins,num_bins_per_side);
+//    cudaerr = cudaDeviceSynchronize();
 //    if (cudaerr != cudaSuccess)
-//      cout<<"movegpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
-//loop++;
+//        cout<<"forcegpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
+//    end_time = chrono::steady_clock::now();
+//    diff = end_time - start_time;
+//    seconds = diff.count();
+//    cout << "Compute_forces kernel took " << seconds << " seconds." << endl;
+
+//    start_time = chrono::steady_clock::now();
+    move_gpu<<<binblks,NUM_THREADS>>>(parts, num_parts,size);  // NOTE(vsatish): Changed this from blks.
+//    cudaerr = cudaDeviceSynchronize();
+//    if (cudaerr != cudaSuccess)
+//        cout<<"movegpu"<<loop<<":"<<cudaGetErrorString(cudaerr)<<endl;
+//    end_time = chrono::steady_clock::now();
+//    diff = end_time - start_time;
+//    seconds = diff.count();
+//    cout << "Move kernel took " << seconds << " seconds." << endl;
+
+//    loop++;
     // Re-bin particles.
   //  rebin<<<blks,NUM_THREAD>>>(bins,num_bins_per_side,collision_bins);
    /* for (int i = 0; i < num_bins_per_side; i++) {
