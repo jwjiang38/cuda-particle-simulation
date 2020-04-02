@@ -26,7 +26,7 @@ double bin_size;
 bin_t* bins;
 int blks;
 int binblks;
-const int NUM_THREADS=256;
+const int NUM_THREADS=160;
 
 //using namespace thrust;
 __global__ void rebin_gpu(particle_t* particles,int num_parts,int num_bins_per_side, bin_t* bins,double bin_size,track_t* track){
@@ -122,23 +122,22 @@ __global__ void compute_forces_gpu(particle_t* parts, int num_parts,bin_t* bins,
     if (tid >= num_bins_per_side*num_bins_per_side){
         return;
     }
-    printf("griddim=%d\n",gridDim.y);
-//    bin_t* thisbin = &bins[tid];
-    if (threadIdx.y>=1){
+    //printf("griddim=%d\n",gridDim.y);
+    bin_t* thisbin = &bins[tid];
+    if (threadIdx.y>=thisbin->nparts){
         return;
     }
 //    for (int i=0;i<thisbin->nparts;i++){
-//    //particle_t* particle=thisbin->particles[threadIdx.y];
-//    particle_t* particle=thisbin->particles[i];
-//    particle->ax = 0;
-//    particle->ay = 0;
-//    for (int j=0;j<thisbin->nnbins;j++){
-//        bin_t* nearbins=&bins[thisbin->nearbins[j]];
-//        for (int k=0;k<nearbins->nparts;k++){
-//            particle_t* neaparticle = nearbins->particles[k];
-//            apply_force_gpu(*particle,*neaparticle);
-//        }
-//    }
+    particle_t* particle=thisbin->particles[threadIdx.y];
+    particle->ax = 0;
+    particle->ay = 0;
+    for (int j=0;j<thisbin->nnbins;j++){
+        bin_t* nearbins=&bins[thisbin->nearbins[j]];
+        for (int k=0;k<nearbins->nparts;k++){
+            particle_t* neaparticle = nearbins->particles[k];
+            apply_force_gpu(*particle,*neaparticle);
+        }
+    }
 //}
 }
 
