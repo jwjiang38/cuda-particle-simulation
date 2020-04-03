@@ -242,7 +242,6 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
     cout<<"binblks="<<binblks<<endl;
     cout<<"blks="<<blks<<endl;
     cudaMalloc(&bins,num_bins_per_side*num_bins_per_side*sizeof(bin_t));
-    //cudaMalloc(&nbin,num_parts*sizeof(int));
     cudaMalloc(&track,num_bins_per_side*num_bins_per_side*sizeof(track_t));
     cudaError_t cudaerr=cudaGetLastError();
     if (cudaerr != cudaSuccess)
